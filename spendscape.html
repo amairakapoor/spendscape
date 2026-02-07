@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpendScape - AR Finance Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0d0221 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        
+        .glass-card:hover {
+            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+        }
+        
+        .neon-glow {
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.5), 0 0 40px rgba(139, 92, 246, 0.3);
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #a78bfa 0%, #c084fc 50%, #e879f9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.5);
+        }
+        
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .pulse-glow {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.8); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .coin-spin {
+            animation: coinSpin 3s linear infinite;
+        }
+        
+        @keyframes coinSpin {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(360deg); }
+        }
+        
+        .bar-grow {
+            animation: barGrow 1s ease-out;
+        }
+        
+        @keyframes barGrow {
+            from { height: 0; }
+            to { height: var(--target-height); }
+        }
+        
+        #ar-canvas, #three-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .feature-card {
+            background: linear-gradient(145deg, rgba(139, 92, 246, 0.1) 0%, rgba(17, 24, 39, 0.8) 100%);
+        }
+        
+        .stat-number {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .hidden-section {
+            display: none;
+        }
+        
+        .active-section {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .subscription-card {
+            background: linear-gradient(145deg, rgba(239, 68, 68, 0.1) 0%, rgba(17, 24, 39, 0.9) 100%);
+        }
+        
+        .savings-card {
+            background: linear-gradient(145deg, rgba(34, 197, 94, 0.1) 0%, rgba(17, 24, 39, 0.9) 100%);
+        }
+        
+        .habit-card {
+            background: linear-gradient(145deg, rgba(59, 130, 246, 0.1) 0%, rgba(17, 24, 39, 0.9) 100%);
+        }
+        
+        .object-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .object-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+        }
+        
+        .object-btn.active {
+            border-color: #a78bfa;
+            box-shadow: 0 0 30px rgba(167, 139, 250, 0.6);
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+        
+        .jar-fill {
+            transition: height 1s ease-in-out;
+        }
+        
+        .camera-permission {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .camera-permission.active {
+            display: flex;
+        }
+        
+        .ar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            display: none;
+        }
+        
+        .ar-overlay.active {
+            display: block;
+        }
+        
+        #ar-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .ar-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .ar-controls {
+            pointer-events: auto;
+        }
+        
+        .model-3d-container {
+            width: 100%;
+            height: 400px;
+            position: relative;
+        }
+        
+        .expense-bar {
+            transition: all 0.5s ease;
+        }
+        
+        .expense-bar:hover {
+            transform: translateX(10px);
+        }
+        
+        .price-tag {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .alternative-card {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .subscription-item {
+            transition: all 0.3s ease;
+        }
+        
+        .subscription-item:hover {
+            transform: translateX(10px);
+            background: rgba(239, 68, 68, 0.2);
+        }
+        
+        .mode-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="text-white overflow-x-hidden">
+    <!-- Background Canvas for 3D Effects -->
+    <canvas id="three-canvas"></canvas>
+    
+    <!-- Camera Permission Modal -->
+    <div id="cameraPermission" class="camera-permission">
+        <div class="glass-card rounded-2xl p-8 max-w-md mx-4 text-center">
+            <i data-lucide="camera" class="w-16 h-16 mx-auto mb-4 text-purple-400"></i>
+            <h3 class="text-2xl font-bold mb-4">Enable AR Experience</h3>
+            <p class="text-gray-300 mb-6">SpendScape needs camera access to show you immersive 3D visualizations of your finances in augmented reality.</p>
+            <div class="flex gap-4 justify-center">
+                <button onclick="denyCamera()" class="px-6 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition">Not Now</button>
+                <button onclick="allowCamera()" class="btn-primary px-6 py-3 rounded-xl font-semibold">Enable Camera</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AR Overlay -->
+    <div id="arOverlay" class="ar-overlay">
+        <video id="arVideo" autoplay playsinline></video>
+        <canvas id="arCanvas"></canvas>
+        <div class="ar-ui flex flex-col justify-between p-6">
+            <div class="ar-controls flex justify-between items-start">
+                <button onclick="closeAR()" class="glass-card p-3 rounded-full hover:bg-purple-900/50 transition">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+                <div class="glass-card px-4 py-2 rounded-full">
+                    <span class="text-sm font-medium">AR Mode Active</span>
+                </div>
+            </div>
+            <div id="arContent" class="ar-controls glass-card rounded-2xl p-6 max-w-md mx-auto mb-20">
+                <!-- Dynamic AR content -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mode Indicator -->
+    <div id="modeIndicator" class="mode-indicator hidden">
+        <div class="glass-card px-4 py-2 rounded-full flex items-center gap-2">
+            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span id="currentModeText" class="text-sm font-medium">Dashboard</span>
+        </div>
+    </div>
+    
+    <!-- Back Button -->
+    <button id="backButton" onclick="goHome()" class="back-btn hidden glass-card p-3 rounded-full hover:bg-purple-900/50 transition ar-controls">
+        <i data-lucide="arrow-left" class="w-6 h-6"></i>
+    </button>
+
+    <!-- HOME PAGE -->
+    <div id="homePage" class="active-section relative z-10">
+        <!-- Hero Section -->
+        <header class="container mx-auto px-6 py-12">
+            <nav class="flex justify-between items-center mb-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center coin-spin">
+                        <i data-lucide="wallet" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <span class="text-2xl font-bold gradient-text">SpendScape</span>
+                </div>
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#features" class="text-gray-300 hover:text-white transition">Features</a>
+                    <a href="#how-it-works" class="text-gray-300 hover:text-white transition">How It Works</a>
+                    <button onclick="showDashboard()" class="btn-primary px-6 py-2 rounded-full font-medium">Launch App</button>
+                </div>
+            </nav>
+            
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="slide-in">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6">
+                        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        <span class="text-sm text-purple-300">AR-Ready Financial Visualizer</span>
+                    </div>
+                    <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                        See Your Money<br>
+                        <span class="gradient-text neon-text">Like Never Before</span>
+                    </h1>
+                    <p class="text-xl text-gray-400 mb-8 max-w-lg">
+                        Transform invisible expenses into stunning 3D visualizations. Track habits, visualize savings goals, and monitor subscriptions in augmented reality.
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <button onclick="showDashboard()" class="btn-primary px-8 py-4 rounded-2xl font-semibold text-lg flex items-center gap-2">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            Start Visualizing
+                        </button>
+                        <button onclick="showDemo()" class="glass-card px-8 py-4 rounded-2xl font-semibold text-lg hover:bg-purple-900/30 transition flex items-center gap-2">
+                            <i data-lucide="play" class="w-5 h-5"></i>
+                            Watch Demo
+                        </button>
+                    </div>
+                </div>
+                <div class="relative floating">
+                    <div class="relative">
+                        <div class="absolute inset-0 bg-purple-600/30 rounded-3xl blur-3xl"></div>
+                        <div class="glass-card rounded-3xl p-8 relative">
+                            <div class="flex justify-between items-center mb-6">
+                                <div>
+                                    <p class="text-gray-400 text-sm">Total Spent Today</p>
+                                    <p class="text-3xl font-bold">₹<span id="heroTotal">0</span></p>
+                                </div>
+                                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                                    <i data-lucide="trending-down" class="w-8 h-8 text-white"></i>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                                        <i data-lucide="coffee" class="w-5 h-5 text-red-400"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-sm">Coffee</span>
+                                            <span class="text-sm text-gray-400">₹180</span>
+                                        </div>
+                                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div class="h-full w-3/4 bg-gradient-to-r from-red-500 to-orange-500 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                        <i data-lucide="smartphone" class="w-5 h-5 text-blue-400"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-sm">Subscriptions</span>
+                                            <span class="text-sm text-gray-400">₹1,497</span>
+                                        </div>
+                                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div class="h-full w-1/2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                                        <i data-lucide="piggy-bank" class="w-5 h-5 text-green-400"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-sm">Savings</span>
+                                            <span class="text-sm text-gray-400">₹5,000</span>
+                                        </div>
+                                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div class="h-full w-2/3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Features Section -->
+        <section id="features" class="container mx-auto px-6 py-20">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Powerful AR Features</h2>
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto">Three immersive ways to understand and control your spending</p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Habit Visualizer Card -->
+                <div class="feature-card glass-card rounded-3xl p-8 hover:scale-105 transition duration-500 cursor-pointer" onclick="showHabitMode()">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-6 pulse-glow">
+                        <i data-lucide="coffee" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">AR Habit Cost</h3>
+                    <p class="text-gray-400 mb-6">See daily expenses grow into massive 3D towers. Visualize the true cost of your habits.</p>
+                    <div class="flex items-center gap-2 text-blue-400">
+                        <span class="font-medium">Explore</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                
+                <!-- Savings Visualizer Card -->
+                <div class="feature-card glass-card rounded-3xl p-8 hover:scale-105 transition duration-500 cursor-pointer" onclick="showSavingsMode()">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-6 pulse-glow">
+                        <i data-lucide="piggy-bank" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">AR Savings Goal</h3>
+                    <p class="text-gray-400 mb-6">Watch your savings fill up a 3D jar in AR. Stay motivated with visual progress.</p>
+                    <div class="flex items-center gap-2 text-green-400">
+                        <span class="font-medium">Explore</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                
+                <!-- Subscription Tracker Card -->
+                <div class="feature-card glass-card rounded-3xl p-8 hover:scale-105 transition duration-500 cursor-pointer" onclick="showSubscriptionMode()">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center mb-6 pulse-glow">
+                        <i data-lucide="credit-card" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">Subscription Drain</h3>
+                    <p class="text-gray-400 mb-6">3D stacked bars show exactly where your money goes every month.</p>
+                    <div class="flex items-center gap-2 text-red-400">
+                        <span class="font-medium">Explore</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="container mx-auto px-6 py-20">
+            <div class="glass-card rounded-3xl p-8 md:p-12">
+                <div class="grid md:grid-cols-4 gap-8 text-center">
+                    <div>
+                        <p class="text-4xl md:text-5xl font-bold stat-number mb-2">₹2.4L</p>
+                        <p class="text-gray-400">Average Saved</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl md:text-5xl font-bold stat-number mb-2">50K+</p>
+                        <p class="text-gray-400">Active Users</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl md:text-5xl font-bold stat-number mb-2">3</p>
+                        <p class="text-gray-400">AR Modes</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl md:text-5xl font-bold stat-number mb-2">4.9★</p>
+                        <p class="text-gray-400">User Rating</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- DASHBOARD PAGE -->
+    <div id="dashboardPage" class="hidden-section relative z-10 container mx-auto px-6 py-20">
+        <div class="text-center mb-12">
+            <h2 class="text-4xl md:text-5xl font-bold mb-4">Choose Your <span class="gradient-text">Visualization Mode</span></h2>
+            <p class="text-gray-400 text-lg">Select a mode to explore your finances in immersive 3D</p>
+        </div>
+        
+        <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <button onclick="showHabitMode()" class="habit-card glass-card rounded-3xl p-8 text-left hover:scale-105 transition duration-500 group">
+                <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                    <i data-lucide="coffee" class="w-10 h-10 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">Habit Cost Visualizer</h3>
+                <p class="text-gray-400 mb-4">See daily expenses as growing 3D bars. Understand the true impact of small purchases.</p>
+                <div class="flex items-center gap-2 text-blue-400 font-medium">
+                    <span>Launch 3D Visualizer</span>
+                    <i data-lucide="box" class="w-5 h-5"></i>
+                </div>
+            </button>
+            
+            <button onclick="showSavingsMode()" class="savings-card glass-card rounded-3xl p-8 text-left hover:scale-105 transition duration-500 group">
+                <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                    <i data-lucide="piggy-bank" class="w-10 h-10 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">Savings Goal Visualizer</h3>
+                <p class="text-gray-400 mb-4">Watch your savings fill up a 3D jar. Set goals and track progress visually.</p>
+                <div class="flex items-center gap-2 text-green-400 font-medium">
+                    <span>Launch 3D Visualizer</span>
+                    <i data-lucide="box" class="w-5 h-5"></i>
+                </div>
+            </button>
+            
+            <button onclick="showSubscriptionMode()" class="subscription-card glass-card rounded-3xl p-8 text-left hover:scale-105 transition duration-500 group">
+                <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                    <i data-lucide="credit-card" class="w-10 h-10 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">Subscription Tracker</h3>
+                <p class="text-gray-400 mb-4">3D stacked bars reveal your subscription spending. Identify money drains.</p>
+                <div class="flex items-center gap-2 text-red-400 font-medium">
+                    <span>Launch 3D Visualizer</span>
+                    <i data-lucide="box" class="w-5 h-5"></i>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- HABIT MODE PAGE -->
+    <div id="habitPage" class="hidden-section relative z-10 container mx-auto px-6 py-20">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">AR <span class="gradient-text">Habit Cost</span> Visualizer</h2>
+                <p class="text-gray-400 text-lg">Select a daily expense to see its true cost in 3D</p>
+            </div>
+            
+            <!-- Object Selection Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-12">
+                <button onclick="selectHabit('coffee', 180)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="coffee">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center">
+                        <i data-lucide="coffee" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Coffee</p>
+                    <p class="text-sm text-gray-400">₹180/day</p>
+                </button>
+                
+                <button onclick="selectHabit('cigarette', 300)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="cigarette">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center">
+                        <i data-lucide="cigarette" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Cigarettes</p>
+                    <p class="text-sm text-gray-400">₹300/day</p>
+                </button>
+                
+                <button onclick="selectHabit('snacks', 150)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="snacks">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                        <i data-lucide="cookie" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Snacks</p>
+                    <p class="text-sm text-gray-400">₹150/day</p>
+                </button>
+                
+                <button onclick="selectHabit('transport', 400)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="transport">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                        <i data-lucide="car" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Transport</p>
+                    <p class="text-sm text-gray-400">₹400/day</p>
+                </button>
+                
+                <button onclick="selectHabit('dining', 800)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="dining">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                        <i data-lucide="utensils" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Dining Out</p>
+                    <p class="text-sm text-gray-400">₹800/day</p>
+                </button>
+                
+                <button onclick="selectHabit('shopping', 1200)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="shopping">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                        <i data-lucide="shopping-bag" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Shopping</p>
+                    <p class="text-sm text-gray-400">₹1,200/day</p>
+                </button>
+                
+                <button onclick="selectHabit('gaming', 200)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="gaming">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
+                        <i data-lucide="gamepad-2" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Gaming</p>
+                    <p class="text-sm text-gray-400">₹200/day</p>
+                </button>
+                
+                <button onclick="selectHabit('streaming', 50)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="streaming">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
+                        <i data-lucide="play-circle" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Streaming</p>
+                    <p class="text-sm text-gray-400">₹50/day</p>
+                </button>
+                
+                <button onclick="selectHabit('gym', 200)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="gym">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                        <i data-lucide="dumbbell" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Gym</p>
+                    <p class="text-sm text-gray-400">₹200/day</p>
+                </button>
+                
+                <button onclick="selectHabit('beverages', 120)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="beverages">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center">
+                        <i data-lucide="wine" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Beverages</p>
+                    <p class="text-sm text-gray-400">₹120/day</p>
+                </button>
+                
+                <button onclick="selectHabit('parking', 100)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="parking">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center">
+                        <i data-lucide="square-parking" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Parking</p>
+                    <p class="text-sm text-gray-400">₹100/day</p>
+                </button>
+                
+                <button onclick="selectHabit('delivery', 250)" class="object-btn glass-card rounded-2xl p-6 text-center" data-habit="delivery">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center">
+                        <i data-lucide="bike" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <p class="font-semibold">Food Delivery</p>
+                    <p class="text-sm text-gray-400">₹250/day</p>
+                </button>
+            </div>
+            
+            <!-- 3D Visualization Area -->
+            <div id="habitVisualization" class="glass-card rounded-3xl p-8 mb-8 hidden">
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <!-- 3D Model Display -->
+                    <div class="model-3d-container rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-black">
+                        <canvas id="habit3DCanvas" class="w-full h-full"></canvas>
+                        <div class="absolute bottom-4 left-4 right-4 flex justify-center gap-4">
+                            <button onclick="toggleAR('habit')" class="btn-primary px-6 py-3 rounded-xl font-medium flex items-center gap-2">
+                                <i data-lucide="camera" class="w-5 h-5"></i>
+                                View in AR
+                            </button>
+                            <button onclick="rotateModel()" class="glass-card px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:bg-purple-900/30">
+                                <i data-lucide="rotate-3d" class="w-5 h-5"></i>
+                                Rotate
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Cost Breakdown -->
+                    <div class="space-y-6">
+                        <div>
+                            <h3 id="selectedHabitName" class="text-3xl font-bold mb-2">Select an expense</h3>
+                            <p class="text-gray-400">Daily spending visualization</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="expense-bar glass-card rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                        <i data-lucide="calendar" class="w-6 h-6 text-blue-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">Daily</p>
+                                        <p id="dailyCost" class="text-2xl font-bold">₹0</p>
+                                    </div>
+                                </div>
+                                <div class="h-16 w-4 bg-gray-700 rounded-full overflow-hidden">
+                                    <div id="dailyBar" class="h-full w-full bg-blue-500 rounded-full" style="height: 20%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="expense-bar glass-card rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                                        <i data-lucide="calendar-days" class="w-6 h-6 text-purple-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">Monthly</p>
+                                        <p id="monthlyCost" class="text-2xl font-bold">₹0</p>
+                                    </div>
+                                </div>
+                                <div class="h-16 w-4 bg-gray-700 rounded-full overflow-hidden">
+                                    <div id="monthlyBar" class="w-full bg-purple-500 rounded-full" style="height: 40%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="expense-bar glass-card rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center">
+                                        <i data-lucide="calendar-range" class="w-6 h-6 text-pink-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">Yearly</p>
+                                        <p id="yearlyCost" class="text-2xl font-bold">₹0</p>
+                                    </div>
+                                </div>
+                                <div class="h-16 w-4 bg-gray-700 rounded-full overflow-hidden">
+                                    <div id="yearlyBar" class="w-full bg-pink-500 rounded-full" style="height: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Alternatives Section -->
+                        <div class="alternative-card rounded-xl p-6">
+                            <h4 class="font-bold mb-4 flex items-center gap-2">
+                                <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
+                                Instead, you could buy:
+                            </h4>
+                            <div id="alternativesList" class="grid grid-cols-2 gap-3">
+                                <!-- Dynamic alternatives -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Prompt to select -->
+            <div id="habitPrompt" class="glass-card rounded-3xl p-12 text-center">
+                <div class="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                    <i data-lucide="mouse-pointer-click" class="w-12 h-12 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">Select an Expense Above</h3>
+                <p class="text-gray-400">Click any daily expense to see its 3D visualization and true cost impact</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SAVINGS MODE PAGE -->
+    <div id="savingsPage" class="hidden-section relative z-10 container mx-auto px-6 py-20">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">AR <span class="gradient-text">Savings Goal</span> Visualizer</h2>
+                <p class="text-gray-400 text-lg">Watch your savings fill up in 3D</p>
+            </div>
+            
+            <!-- Savings Input -->
+            <div class="glass-card rounded-3xl p-8 mb-8 max-w-2xl mx-auto">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Current Savings (₹)</label>
+                        <input type="number" id="currentSavings" value="25000" class="w-full bg-gray-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500" onchange="updateSavings()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Goal Amount (₹)</label>
+                        <input type="number" id="goalAmount" value="100000" class="w-full bg-gray-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500" onchange="updateSavings()">
+                    </div>
+                </div>
+                <div class="mt-6 flex gap-4">
+                    <button onclick="updateSavings()" class="btn-primary flex-1 py-3 rounded-xl font-medium">Update Visualization</button>
+                    <button onclick="toggleAR('savings')" class="glass-card px-6 py-3 rounded-xl font-medium hover:bg-purple-900/30 flex items-center gap-2">
+                        <i data-lucide="camera" class="w-5 h-5"></i>
+                        AR View
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 3D Jar Visualization -->
+            <div class="glass-card rounded-3xl p-8">
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <div class="model-3d-container rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-black relative">
+                        <canvas id="savings3DCanvas" class="w-full h-full"></canvas>
+                        <div class="absolute top-4 left-4 glass-card px-4 py-2 rounded-full">
+                            <span class="text-sm font-medium">3D Interactive Model</span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-3xl font-bold mb-2">Your Savings Jar</h3>
+                            <p class="text-gray-400">Visual progress towards your goal</p>
+                        </div>
+                        
+                        <!-- Progress Ring -->
+                        <div class="flex justify-center">
+                            <div class="relative w-48 h-48">
+                                <svg class="w-full h-full progress-ring" viewBox="0 0 120 120">
+                                    <circle cx="60" cy="60" r="54" fill="none" stroke="#374151" stroke-width="8"/>
+                                    <circle id="progressCircle" cx="60" cy="60" r="54" fill="none" stroke="url(#gradient)" stroke-width="8" stroke-linecap="round" stroke-dasharray="339.292" stroke-dashoffset="254.469"/>
+                                    <defs>
+                                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#22c55e"/>
+                                            <stop offset="100%" stop-color="#10b981"/>
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span id="progressPercent" class="text-4xl font-bold">25%</span>
+                                    <span class="text-sm text-gray-400">Complete</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-4 text-center">
+                                <p class="text-sm text-gray-400 mb-1">Current</p>
+                                <p id="displayCurrent" class="text-2xl font-bold text-green-400">₹25,000</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-4 text-center">
+                                <p class="text-sm text-gray-400 mb-1">Remaining</p>
+                                <p id="displayRemaining" class="text-2xl font-bold text-purple-400">₹75,000</p>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-card rounded-xl p-6">
+                            <h4 class="font-bold mb-4 flex items-center gap-2">
+                                <i data-lucide="trophy" class="w-5 h-5 text-yellow-400"></i>
+                                Milestone Rewards
+                            </h4>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                                        <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
+                                    </div>
+                                    <span class="text-sm">25% - ₹25,000 saved! 🎉</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                                        <span class="text-xs">50%</span>
+                                    </div>
+                                    <span class="text-sm text-gray-400">50% - ₹50,000 (Unlock at halfway)</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                                        <span class="text-xs">100%</span>
+                                    </div>
+                                    <span class="text-sm text-gray-400">100% - Goal achieved! 🏆</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUBSCRIPTION MODE PAGE -->
+    <div id="subscriptionPage" class="hidden-section relative z-10 container mx-auto px-6 py-20">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">AR <span class="gradient-text">Subscription</span> Drain Tracker</h2>
+                <p class="text-gray-400 text-lg">See where your money goes every month</p>
+            </div>
+            
+            <!-- Add Subscription -->
+            <div class="glass-card rounded-3xl p-6 mb-8">
+                <div class="grid md:grid-cols-4 gap-4">
+                    <input type="text" id="subName" placeholder="Service name (e.g., Netflix)" class="bg-gray-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                    <input type="number" id="subCost" placeholder="Monthly cost (₹)" class="bg-gray-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                    <select id="subCategory" class="bg-gray-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                        <option value="entertainment">Entertainment</option>
+                        <option value="productivity">Productivity</option>
+                        <option value="fitness">Fitness</option>
+                        <option value="food">Food & Dining</option>
+                        <option value="shopping">Shopping</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <button onclick="addSubscription()" class="btn-primary py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        Add Subscription
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 3D Stacked Bars Visualization -->
+            <div class="glass-card rounded-3xl p-8 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold">3D Subscription Stack</h3>
+                    <button onclick="toggleAR('subscription')" class="glass-card px-4 py-2 rounded-xl hover:bg-purple-900/30 flex items-center gap-2">
+                        <i data-lucide="camera" class="w-5 h-5"></i>
+                        AR View
+                    </button>
+                </div>
+                <div class="model-3d-container rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-black">
+                    <canvas id="subscription3DCanvas" class="w-full h-full"></canvas>
+                </div>
+            </div>
+            
+            <!-- Subscription List & Stats -->
+            <div class="grid lg:grid-cols-2 gap-8">
+                <!-- Subscription List -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="text-xl font-bold mb-6">Your Subscriptions</h3>
+                    <div id="subscriptionList" class="space-y-3 max-h-96 overflow-y-auto">
+                        <!-- Dynamic subscriptions -->
+                    </div>
+                </div>
+                
+                <!-- Stats & Insights -->
+                <div class="space-y-6">
+                    <div class="glass-card rounded-3xl p-6">
+                        <h3 class="text-xl font-bold mb-6">Spending Overview</h3>
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="subscription-card rounded-xl p-4 text-center">
+                                <p class="text-sm text-gray-400 mb-1">Monthly Total</p>
+                                <p id="monthlyTotal" class="text-3xl font-bold text-red-400">₹0</p>
+                            </div>
+                            <div class="subscription-card rounded-xl p-4 text-center">
+                                <p class="text-sm text-gray-400 mb-1">Yearly Total</p>
+                                <p id="yearlyTotal" class="text-3xl font-bold text-red-400">₹0</p>
+                            </div>
+                        </div>
+                        <canvas id="subscriptionChart" class="w-full h-64"></canvas>
+                    </div>
+                    
+                    <div class="glass-card rounded-3xl p-6">
+                        <h4 class="font-bold mb-4 flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-400"></i>
+                            Money-Saving Insights
+                        </h4>
+                        <div id="insightsList" class="space-y-3">
+                            <!-- Dynamic insights -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Modal -->
+    <div id="demoModal" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-6">
+        <div class="glass-card rounded-3xl p-8 max-w-4xl w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold">SpendScape Demo</h3>
+                <button onclick="closeDemo()" class="glass-card p-2 rounded-full hover:bg-purple-900/30">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="aspect-video bg-gray-900 rounded-2xl flex items-center justify-center">
+                <div class="text-center">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center animate-pulse">
+                        <i data-lucide="play" class="w-10 h-10 text-white"></i>
+                    </div>
+                    <p class="text-gray-400">Interactive demo loading...</p>
+                    <p class="text-sm text-gray-500 mt-2">Experience the AR features by launching the app!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+        
+        // Global state
+        let currentMode = 'home';
+        let selectedHabitData = null;
+        let subscriptions = [
+            { name: 'Netflix', cost: 649, category: 'entertainment' },
+            { name: 'Spotify', cost: 199, category: 'entertainment' },
+            { name: 'Amazon Prime', cost: 1499, category: 'shopping' },
+            { name: 'YouTube Premium', cost: 189, category: 'entertainment' },
+            { name: 'Gym Membership', cost: 2500, category: 'fitness' },
+            { name: 'Microsoft 365', cost: 489, category: 'productivity' }
+        ];
+        let habitScene, savingsScene, subscriptionScene;
+        let habitRenderer, savingsRenderer, subscriptionRenderer;
+        let habitCamera, savingsCamera, subscriptionCamera;
+        let isRotating = false;
+        
+        // Alternatives database
+        const alternativesDB = {
+            coffee: [
+                { name: 'Home Coffee Maker', cost: 5000, icon: 'coffee' },
+                { name: 'Premium Tea Set', cost: 2000, icon: 'cup-soda' },
+                { name: 'Insulated Flask', cost: 800, icon: 'flask-conical' }
+            ],
+            cigarette: [
+                { name: 'Nicotine Patches (1 month)', cost: 2000, icon: 'pill' },
+                { name: 'Gym Membership', cost: 2500, icon: 'dumbbell' },
+                { name: 'Meditation App', cost: 1500, icon: 'brain' }
+            ],
+            snacks: [
+                { name: 'Monthly Grocery Upgrade', cost: 3000, icon: 'shopping-cart' },
+                { name: 'Protein Powder', cost: 2500, icon: 'package' },
+                { name: 'Fruit Basket Subscription', cost: 1500, icon: 'apple' }
+            ],
+            transport: [
+                { name: 'Cycle', cost: 8000, icon: 'bike' },
+                { name: 'Monthly Bus Pass', cost: 1500, icon: 'bus' },
+                { name: 'EV Scooter EMI', cost: 3500, icon: 'zap' }
+            ],
+            dining: [
+                { name: 'Cooking Classes', cost: 5000, icon: 'chef-hat' },
+                { name: 'Premium Cookware', cost: 8000, icon: 'utensils' },
+                { name: 'Meal Kit Service', cost: 4000, icon: 'package' }
+            ],
+            shopping: [
+                { name: 'Investment in Stocks', cost: 5000, icon: 'trending-up' },
+                { name: 'Online Course', cost: 3000, icon: 'graduation-cap' },
+                { name: 'Weekend Getaway', cost: 8000, icon: 'plane' }
+            ],
+            gaming: [
+                { name: 'Game Pass Ultimate', cost: 700, icon: 'gamepad-2' },
+                { name: 'Gaming Peripherals', cost: 5000, icon: 'mouse' },
+                { name: 'Indie Game Bundle', cost: 1000, icon: 'package' }
+            ],
+            streaming: [
+                { name: 'Library Card', cost: 500, icon: 'book' },
+                { name: 'Podcast Premium', cost: 300, icon: 'headphones' },
+                { name: 'Audiobook Service', cost: 400, icon: 'book-open' }
+            ],
+            gym: [
+                { name: 'Home Equipment', cost: 10000, icon: 'dumbbell' },
+                { name: 'Yoga Classes', cost: 2000, icon: 'flower-2' },
+                { name: 'Running Shoes', cost: 5000, icon: 'footprints' }
+            ],
+            beverages: [
+                { name: 'Water Filter', cost: 3000, icon: 'droplets' },
+                { name: 'Juicer', cost: 4000, icon: 'cup-soda' },
+                { name: 'Herbal Tea Collection', cost: 1500, icon: 'leaf' }
+            ],
+            parking: [
+                { name: 'Monthly Pass', cost: 2000, icon: 'ticket' },
+                { name: 'Car Pool Service', cost: 1500, icon: 'users' },
+                { name: 'Public Transport Card', cost: 1000, icon: 'credit-card' }
+            ],
+            delivery: [
+                { name: 'Meal Prep Container Set', cost: 2000, icon: 'container' },
+                { name: 'Slow Cooker', cost: 3500, icon: 'cooking-pot' },
+                { name: 'Recipe Book Collection', cost: 1500, icon: 'book-open' }
+            ]
+        };
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            updateSubscriptionList();
+            updateSavings();
+            animateHeroTotal();
+        });
+        
+        // Three.js initialization
+        function initThreeJS() {
+            // Habit scene
+            const habitCanvas = document.getElementById('habit3DCanvas');
+            if (habitCanvas) {
+                habitScene = new THREE.Scene();
+                habitCamera = new THREE.PerspectiveCamera(75, habitCanvas.clientWidth / habitCanvas.clientHeight, 0.1, 1000);
+                habitRenderer = new THREE.WebGLRenderer({ canvas: habitCanvas, alpha: true, antialias: true });
+                habitRenderer.setSize(habitCanvas.clientWidth, habitCanvas.clientHeight);
+                habitCamera.position.z = 5;
+                
+                // Add lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                habitScene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 5, 5);
+                habitScene.add(directionalLight);
+            }
+            
+            // Savings scene
+            const savingsCanvas = document.getElementById('savings3DCanvas');
+            if (savingsCanvas) {
+                savingsScene = new THREE.Scene();
+                savingsCamera = new THREE.PerspectiveCamera(75, savingsCanvas.clientWidth / savingsCanvas.clientHeight, 0.1, 1000);
+                savingsRenderer = new THREE.WebGLRenderer({ canvas: savingsCanvas, alpha: true, antialias: true });
+                savingsRenderer.setSize(savingsCanvas.clientWidth, savingsCanvas.clientHeight);
+                savingsCamera.position.z = 5;
+                
+                const ambientLight2 = new THREE.AmbientLight(0xffffff, 0.6);
+                savingsScene.add(ambientLight2);
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight2.position.set(5, 5, 5);
+                savingsScene.add(directionalLight2);
+                
+                createSavingsJar();
+            }
+            
+            // Subscription scene
+            const subCanvas = document.getElementById('subscription3DCanvas');
+            if (subCanvas) {
+                subscriptionScene = new THREE.Scene();
+                subscriptionCamera = new THREE.PerspectiveCamera(75, subCanvas.clientWidth / subCanvas.clientHeight, 0.1, 1000);
+                subscriptionRenderer = new THREE.WebGLRenderer({ canvas: subCanvas, alpha: true, antialias: true });
+                subscriptionRenderer.setSize(subCanvas.clientWidth, subCanvas.clientHeight);
+                subscriptionCamera.position.z = 8;
+                subscriptionCamera.position.y = 2;
+                subscriptionCamera.lookAt(0, 0, 0);
+                
+                const ambientLight3 = new THREE.AmbientLight(0xffffff, 0.6);
+                subscriptionScene.add(ambientLight3);
+                const directionalLight3 = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight3.position.set(5, 10, 5);
+                subscriptionScene.add(directionalLight3);
+                
+                createSubscriptionBars();
+            }
+            
+            animate();
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (habitRenderer && habitScene && habitCamera) {
+                if (isRotating) {
+                    habitScene.rotation.y += 0.01;
+                }
+                habitRenderer.render(habitScene, habitCamera);
+            }
+            
+            if (savingsRenderer && savingsScene && savingsCamera) {
+                savingsScene.rotation.y += 0.005;
+                savingsRenderer.render(savingsScene, savingsCamera);
+            }
+            
+            if (subscriptionRenderer && subscriptionScene && subscriptionCamera) {
+                subscriptionScene.rotation.y += 0.003;
+                subscriptionRenderer.render(subscriptionScene, subscriptionCamera);
+            }
+        }
+        
+        // Create 3D savings jar
+        function createSavingsJar() {
+            if (!savingsScene) return;
+            
+            // Clear existing
+            while(savingsScene.children.length > 2) {
+                savingsScene.remove(savingsScene.children[2]);
+            }
+            
+            // Jar body (transparent cylinder)
+            const jarGeometry = new THREE.CylinderGeometry(1.5, 1.5, 3, 32, 1, true);
+            const jarMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x88ccff,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide,
+                roughness: 0.1,
+                metalness: 0.1
+            });
+            const jar = new THREE.Mesh(jarGeometry, jarMaterial);
+            jar.position.y = 0;
+            savingsScene.add(jar);
+            
+            // Jar bottom
+            const bottomGeometry = new THREE.CircleGeometry(1.5, 32);
+            const bottomMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x88ccff,
+                transparent: true,
+                opacity: 0.3
+            });
+            const bottom = new THREE.Mesh(bottomGeometry, bottomMaterial);
+            bottom.rotation.x = -Math.PI / 2;
+            bottom.position.y = -1.5;
+            savingsScene.add(bottom);
+            
+            // Jar rim
+            const rimGeometry = new THREE.TorusGeometry(1.5, 0.1, 16, 32);
+            const rimMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+            const rim = new THREE.Mesh(rimGeometry, rimMaterial);
+            rim.position.y = 1.5;
+            rim.rotation.x = Math.PI / 2;
+            savingsScene.add(rim);
+            
+            // Calculate fill level
+            const current = parseFloat(document.getElementById('currentSavings')?.value) || 25000;
+            const goal = parseFloat(document.getElementById('goalAmount')?.value) || 100000;
+            const percent = Math.min(current / goal, 1);
+            
+            // Coins/savings fill
+            const fillHeight = 2.8 * percent;
+            const fillGeometry = new THREE.CylinderGeometry(1.4, 1.4, fillHeight, 32);
+            const fillMaterial = new THREE.MeshStandardMaterial({
+                color: 0x22c55e,
+                emissive: 0x10b981,
+                emissiveIntensity: 0.3
+            });
+            const fill = new THREE.Mesh(fillGeometry, fillMaterial);
+            fill.position.y = -1.5 + fillHeight / 2;
+            savingsScene.add(fill);
+            
+            // Add coin particles
+            for (let i = 0; i < 20 * percent; i++) {
+                const coinGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.05, 16);
+                const coinMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xfbbf24,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+                const coin = new THREE.Mesh(coinGeometry, coinMaterial);
+                coin.position.set(
+                    (Math.random() - 0.5) * 2,
+                    -1.5 + Math.random() * fillHeight,
+                    (Math.random() - 0.5) * 2
+                );
+                coin.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                savingsScene.add(coin);
+            }
+        }
+        
+        // Create 3D subscription bars
+        function createSubscriptionBars() {
+            if (!subscriptionScene) return;
+            
+            // Clear existing meshes (keep lights)
+            while(subscriptionScene.children.length > 2) {
+                subscriptionScene.remove(subscriptionScene.children[2]);
+            }
+            
+            const total = subscriptions.reduce((sum, sub) => sum + sub.cost, 0);
+            let xOffset = -(subscriptions.length - 1) * 0.8;
+            
+            const colors = {
+                entertainment: 0xef4444,
+                productivity: 0x3b82f6,
+                fitness: 0x22c55e,
+                food: 0xf59e0b,
+                shopping: 0x8b5cf6,
+                other: 0x6b7280
+            };
+            
+            subscriptions.forEach((sub, index) => {
+                const height = (sub.cost / 3000) * 3; // Scale height
+                const geometry = new THREE.BoxGeometry(0.6, height, 0.6);
+                const material = new THREE.MeshStandardMaterial({
+                    color: colors[sub.category] || colors.other,
+                    emissive: colors[sub.category] || colors.other,
+                    emissiveIntensity: 0.2
+                });
+                const bar = new THREE.Mesh(geometry, material);
+                bar.position.set(xOffset, height / 2 - 1, 0);
+                subscriptionScene.add(bar);
+                
+                // Add label platform
+                const platformGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+                const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+                const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+                platform.position.set(xOffset, -1, 0);
+                subscriptionScene.add(platform);
+                
+                xOffset += 1.6;
+            });
+        }
+        
+        // Create 3D habit bars
+        function createHabitBars(dailyCost) {
+            if (!habitScene) return;
+            
+            // Clear existing
+            while(habitScene.children.length > 2) {
+                habitScene.remove(habitScene.children[2]);
+            }
+            
+            const monthlyCost = dailyCost * 30;
+            const yearlyCost = dailyCost * 365;
+            
+            // Create three bars
+            const bars = [
+                { height: 1, color: 0x3b82f6, label: 'Daily', value: dailyCost },
+                { height: 2, color: 0x8b5cf6, label: 'Monthly', value: monthlyCost },
+                { height: 4, color: 0xec4899, label: 'Yearly', value: yearlyCost }
+            ];
+            
+            bars.forEach((bar, index) => {
+                const geometry = new THREE.BoxGeometry(0.8, bar.height, 0.8);
+                const material = new THREE.MeshStandardMaterial({
+                    color: bar.color,
+                    emissive: bar.color,
+                    emissiveIntensity: 0.3
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set((index - 1) * 2, bar.height / 2 - 1, 0);
+                habitScene.add(mesh);
+                
+                // Glow effect
+                const glowGeometry = new THREE.BoxGeometry(1, bar.height + 0.2, 1);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: bar.color,
+                    transparent: true,
+                    opacity: 0.2
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                glow.position.set((index - 1) * 2, bar.height / 2 - 1, 0);
+                habitScene.add(glow);
+            });
+        }
+        
+        // Navigation functions
+        function showDashboard() {
+            hideAllPages();
+            document.getElementById('dashboardPage').classList.add('active-section');
+            document.getElementById('dashboardPage').classList.remove('hidden-section');
+            document.getElementById('modeIndicator').classList.remove('hidden');
+            document.getElementById('backButton').classList.remove('hidden');
+            document.getElementById('currentModeText').textContent = 'Dashboard';
+            currentMode = 'dashboard';
+            lucide.createIcons();
+        }
+        
+        function showHabitMode() {
+            hideAllPages();
+            document.getElementById('habitPage').classList.add('active-section');
+            document.getElementById('habitPage').classList.remove('hidden-section');
+            document.getElementById('modeIndicator').classList.remove('hidden');
+            document.getElementById('backButton').classList.remove('hidden');
+            document.getElementById('currentModeText').textContent = 'Habit Visualizer';
+            currentMode = 'habit';
+            lucide.createIcons();
+        }
+        
+        function showSavingsMode() {
+            hideAllPages();
+            document.getElementById('savingsPage').classList.add('active-section');
+            document.getElementById('savingsPage').classList.remove('hidden-section');
+            document.getElementById('modeIndicator').classList.remove('hidden');
+            document.getElementById('backButton').classList.remove('hidden');
+            document.getElementById('currentModeText').textContent = 'Savings Visualizer';
+            currentMode = 'savings';
+            updateSavings();
+            lucide.createIcons();
+        }
+        
+        function showSubscriptionMode() {
+            hideAllPages();
+            document.getElementById('subscriptionPage').classList.add('active-section');
+            document.getElementById('subscriptionPage').classList.remove('hidden-section');
+            document.getElementById('modeIndicator').classList.remove('hidden');
+            document.getElementById('backButton').classList.remove('hidden');
+            document.getElementById('currentModeText').textContent = 'Subscription Tracker';
+            currentMode = 'subscription';
+            updateSubscriptionList();
+            lucide.createIcons();
+        }
+        
+        function goHome() {
+            hideAllPages();
+            document.getElementById('homePage').classList.add('active-section');
+            document.getElementById('homePage').classList.remove('hidden-section');
+            document.getElementById('modeIndicator').classList.add('hidden');
+            document.getElementById('backButton').classList.add('hidden');
+            currentMode = 'home';
+            lucide.createIcons();
+        }
+        
+        function hideAllPages() {
+            document.getElementById('homePage').classList.remove('active-section');
+            document.getElementById('homePage').classList.add('hidden-section');
+            document.getElementById('dashboardPage').classList.remove('active-section');
+            document.getElementById('dashboardPage').classList.add('hidden-section');
+            document.getElementById('habitPage').classList.remove('active-section');
+            document.getElementById('habitPage').classList.add('hidden-section');
+            document.getElementById('savingsPage').classList.remove('active-section');
+            document.getElementById('savingsPage').classList.add('hidden-section');
+            document.getElementById('subscriptionPage').classList.remove('active-section');
+            document.getElementById('subscriptionPage').classList.add('hidden-section');
+        }
+        
+        // Habit visualizer functions
+        function selectHabit(habit, dailyCost) {
+            selectedHabitData = { habit, dailyCost };
+            
+            // Update UI
+            document.getElementById('habitPrompt').classList.add('hidden');
+            document.getElementById('habitVisualization').classList.remove('hidden');
+            
+            // Update active state on buttons
+            document.querySelectorAll('.object-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-habit="${habit}"]`)?.classList.add('active');
+            
+            // Calculate costs
+            const monthlyCost = dailyCost * 30;
+            const yearlyCost = dailyCost * 365;
+            
+            // Update displays
+            document.getElementById('selectedHabitName').textContent = habit.charAt(0).toUpperCase() + habit.slice(1) + ' Cost';
+            document.getElementById('dailyCost').textContent = '₹' + dailyCost.toLocaleString('en-IN');
+            document.getElementById('monthlyCost').textContent = '₹' + monthlyCost.toLocaleString('en-IN');
+            document.getElementById('yearlyCost').textContent = '₹' + yearlyCost.toLocaleString('en-IN');
+            
+            // Update bar heights
+            document.getElementById('dailyBar').style.height = '20%';
+            document.getElementById('monthlyBar').style.height = '60%';
+            document.getElementById('yearlyBar').style.height = '100%';
+            
+            // Update alternatives
+            updateAlternatives(habit);
+            
+            // Create 3D bars
+            createHabitBars(dailyCost);
+            
+            lucide.createIcons();
+        }
+        
+        function updateAlternatives(habit) {
+            const container = document.getElementById('alternativesList');
+            container.innerHTML = '';
+            
+            const alternatives = alternativesDB[habit] || alternativesDB.coffee;
+            
+            alternatives.forEach(alt => {
+                const div = document.createElement('div');
+                div.className = 'glass-card rounded-lg p-3 flex items-center gap-3';
+                div.innerHTML = `
+                    <i data-lucide="${alt.icon}" class="w-5 h-5 text-green-400"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium truncate">${alt.name}</p>
+                        <p class="text-xs text-green-400">₹${alt.cost.toLocaleString('en-IN')}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        function rotateModel() {
+            isRotating = !isRotating;
+        }
+        
+        // Savings functions
+        function updateSavings() {
+            const current = parseFloat(document.getElementById('currentSavings')?.value) || 25000;
+            const goal = parseFloat(document.getElementById('goalAmount')?.value) || 100000;
+            const percent = Math.min((current / goal) * 100, 100);
+            const remaining = Math.max(goal - current, 0);
+            
+            // Update displays
+            document.getElementById('displayCurrent').textContent = '₹' + current.toLocaleString('en-IN');
+            document.getElementById('displayRemaining').textContent = '₹' + remaining.toLocaleString('en-IN');
+            document.getElementById('progressPercent').textContent = Math.round(percent) + '%';
+            
+            // Update progress ring
+            const circle = document.getElementById('progressCircle');
+            const circumference = 339.292;
+            const offset = circumference - (percent / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+            
+            // Update 3D jar
+            createSavingsJar();
+        }
+        
+        // Subscription functions
+        function addSubscription() {
+            const name = document.getElementById('subName').value.trim();
+            const cost = parseFloat(document.getElementById('subCost').value);
+            const category = document.getElementById('subCategory').value;
+            
+            if (!name || !cost || cost <= 0) {
+                alert('Please enter valid subscription details');
+                return;
+            }
+            
+            subscriptions.push({ name, cost, category });
+            
+            // Clear inputs
+            document.getElementById('subName').value = '';
+            document.getElementById('subCost').value = '';
+            document.getElementById('subCategory').value = 'entertainment';
+            
+            updateSubscriptionList();
+            createSubscriptionBars();
+        }
+        
+        function removeSubscription(index) {
+            subscriptions.splice(index, 1);
+            updateSubscriptionList();
+            createSubscriptionBars();
+        }
+        
+        function updateSubscriptionList() {
+            const container = document.getElementById('subscriptionList');
+            container.innerHTML = '';
+            
+            let monthlyTotal = 0;
+            
+            const categoryIcons = {
+                entertainment: 'play-circle',
+                productivity: 'briefcase',
+                fitness: 'dumbbell',
+                food: 'utensils',
+                shopping: 'shopping-bag',
+                other: 'more-horizontal'
+            };
+            
+            const categoryColors = {
+                entertainment: 'text-red-400',
+                productivity: 'text-blue-400',
+                fitness: 'text-green-400',
+                food: 'text-yellow-400',
+                shopping: 'text-purple-400',
+                other: 'text-gray-400'
+            };
+            
+            subscriptions.forEach((sub, index) => {
+                monthlyTotal += sub.cost;
+                
+                const div = document.createElement('div');
+                div.className = 'subscription-item glass-card rounded-xl p-4 flex items-center justify-between';
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center">
+                            <i data-lucide="${categoryIcons[sub.category] || 'circle'}" class="w-5 h-5 ${categoryColors[sub.category] || 'text-gray-400'}"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium">${sub.name}</p>
+                            <p class="text-sm text-gray-400">₹${sub.cost.toLocaleString('en-IN')}/month</p>
+                        </div>
+                    </div>
+                    <button onclick="removeSubscription(${index})" class="p-2 hover:bg-red-500/20 rounded-lg transition">
+                        <i data-lucide="trash-2" class="w-5 h-5 text-red-400"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+            
+            // Update totals
+            const yearlyTotal = monthlyTotal * 12;
+            document.getElementById('monthlyTotal').textContent = '₹' + monthlyTotal.toLocaleString('en-IN');
+            document.getElementById('yearlyTotal').textContent = '₹' + yearlyTotal.toLocaleString('en-IN');
+            
+            // Update chart
+            updateSubscriptionChart();
+            
+            // Update insights
+            updateInsights(monthlyTotal);
+            
+            lucide.createIcons();
+        }
+        
+        function updateSubscriptionChart() {
+            const ctx = document.getElementById('subscriptionChart');
+            if (!ctx) return;
+            
+            const categoryTotals = {};
+            subscriptions.forEach(sub => {
+                categoryTotals[sub.category] = (categoryTotals[sub.category] || 0) + sub.cost;
+            });
+            
+            const labels = Object.keys(categoryTotals).map(c => c.charAt(0).toUpperCase() + c.slice(1));
+            const data = Object.values(categoryTotals);
+            const colors = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#6b7280'];
+            
+            // Destroy existing chart if any
+            if (window.subscriptionChartInstance) {
+                window.subscriptionChartInstance.destroy();
+            }
+            
+            window.subscriptionChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, data.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#fff', padding: 20 }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateInsights(monthlyTotal) {
+            const container = document.getElementById('insightsList');
+            container.innerHTML = '';
+            
+            const yearlyTotal = monthlyTotal * 12;
+            
+            const insights = [];
+            
+            if (yearlyTotal > 50000) {
+                insights.push({
+                    icon: 'alert-triangle',
+                    color: 'text-yellow-400',
+                    text: `You're spending ₹${yearlyTotal.toLocaleString('en-IN')} yearly on subscriptions. That's a vacation!`
+                });
+            }
+            
+            const streamingCount = subscriptions.filter(s => s.category === 'entertainment').length;
+            if (streamingCount > 3) {
+                insights.push({
+                    icon: 'tv',
+                    color: 'text-purple-400',
+                    text: `You have ${streamingCount} streaming services. Consider consolidating to save money.`
+                });
+            }
+            
+            const fitnessSub = subscriptions.find(s => s.category === 'fitness');
+            if (fitnessSub && fitnessSub.cost > 2000) {
+                insights.push({
+                    icon: 'dumbbell',
+                    color: 'text-green-400',
+                    text: `Your gym costs ₹${fitnessSub.cost.toLocaleString('en-IN')}/month. Are you going regularly?`
+                });
+            }
+            
+            if (insights.length === 0) {
+                insights.push({
+                    icon: 'check-circle',
+                    color: 'text-green-400',
+                    text: 'Your subscription spending looks healthy! Keep monitoring for unused services.'
+                });
+            }
+            
+            insights.forEach(insight => {
+                const div = document.createElement('div');
+                div.className = 'flex items-start gap-3 glass-card rounded-lg p-3';
+                div.innerHTML = `
+                    <i data-lucide="${insight.icon}" class="w-5 h-5 ${insight.color} flex-shrink-0 mt-0.5"></i>
+                    <p class="text-sm">${insight.text}</p>
+                `;
+                container.appendChild(div);
+            });
+            
+            lucide.createIcons();
+        }
+        
+        // AR functions
+        let stream = null;
+        
+        function toggleAR(mode) {
+            document.getElementById('cameraPermission').classList.add('active');
+            window.arMode = mode;
+        }
+        
+        async function allowCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                document.getElementById('arVideo').srcObject = stream;
+                document.getElementById('cameraPermission').classList.remove('active');
+                document.getElementById('arOverlay').classList.add('active');
+                startARExperience(window.arMode);
+            } catch (err) {
+                alert('Camera access denied. You can still use the 3D visualizers without AR.');
+                document.getElementById('cameraPermission').classList.remove('active');
+            }
+        }
+        
+        function denyCamera() {
+            document.getElementById('cameraPermission').classList.remove('active');
+        }
+        
+        function closeAR() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            document.getElementById('arOverlay').classList.remove('active');
+        }
+        
+        function startARExperience(mode) {
+            const content = document.getElementById('arContent');
+            
+            if (mode === 'habit' && selectedHabitData) {
+                const monthly = selectedHabitData.dailyCost * 30;
+                const yearly = selectedHabitData.dailyCost * 365;
+                content.innerHTML = `
+                    <h3 class="text-xl font-bold mb-4">${selectedHabitData.habit.charAt(0).toUpperCase() + selectedHabitData.habit.slice(1)} in AR</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between"><span>Daily:</span><span class="font-bold">₹${selectedHabitData.dailyCost.toLocaleString('en-IN')}</span></div>
+                        <div class="flex justify-between"><span>Monthly:</span><span class="font-bold text-purple-400">₹${monthly.toLocaleString('en-IN')}</span></div>
+                        <div class="flex justify-between"><span>Yearly:</span><span class="font-bold text-pink-400">₹${yearly.toLocaleString('en-IN')}</span></div>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-4">Point your camera at a flat surface to place the 3D visualization</p>
+                `;
+            } else if (mode === 'savings') {
+                const current = parseFloat(document.getElementById('currentSavings')?.value) || 25000;
+                const goal = parseFloat(document.getElementById('goalAmount')?.value) || 100000;
+                const percent = Math.round((current / goal) * 100);
+                content.innerHTML = `
+                    <h3 class="text-xl font-bold mb-4">Savings Goal in AR</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between"><span>Current:</span><span class="font-bold text-green-400">₹${current.toLocaleString('en-IN')}</span></div>
+                        <div class="flex justify-between"><span>Goal:</span><span class="font-bold">₹${goal.toLocaleString('en-IN')}</span></div>
+                        <div class="flex justify-between"><span>Progress:</span><span class="font-bold text-purple-400">${percent}%</span></div>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-4">Watch your savings jar fill up in your real space!</p>
+                `;
+            } else if (mode === 'subscription') {
+                const total = subscriptions.reduce((sum, s) => sum + s.cost, 0);
+                content.innerHTML = `
+                    <h3 class="text-xl font-bold mb-4">Subscription Stack in AR</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between"><span>Monthly:</span><span class="font-bold text-red-400">₹${total.toLocaleString('en-IN')}</span></div>
+                        <div class="flex justify-between"><span>Yearly:</span><span class="font-bold text-red-400">₹${(total * 12).toLocaleString('en-IN')}</span></div>
+                        <div class="flex justify-between"><span>Services:</span><span class="font-bold">${subscriptions.length}</span></div>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-4">See your subscription towers in augmented reality</p>
+                `;
+            }
+        }
+        
+        // Demo modal
+        function showDemo() {
+            document.getElementById('demoModal').classList.remove('hidden');
+            document.getElementById('demoModal').classList.add('flex');
+        }
+        
+        function closeDemo() {
+            document.getElementById('demoModal').classList.add('hidden');
+            document.getElementById('demoModal').classList.remove('flex');
+        }
+        
+        // Hero animation
+        function animateHeroTotal() {
+            const element = document.getElementById('heroTotal');
+            if (!element) return;
+            
+            let current = 0;
+            const target = 5650;
+            const increment = target / 50;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                element.textContent = Math.floor(current).toLocaleString('en-IN');
+            }, 30);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (habitCamera && habitRenderer) {
+                const canvas = document.getElementById('habit3DCanvas');
+                if (canvas) {
+                    habitCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    habitCamera.updateProjectionMatrix();
+                    habitRenderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                }
+            }
+            if (savingsCamera && savingsRenderer) {
+                const canvas = document.getElementById('savings3DCanvas');
+                if (canvas) {
+                    savingsCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    savingsCamera.updateProjectionMatrix();
+                    savingsRenderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                }
+            }
+            if (subscriptionCamera && subscriptionRenderer) {
+                const canvas = document.getElementById('subscription3DCanvas');
+                if (canvas) {
+                    subscriptionCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    subscriptionCamera.updateProjectionMatrix();
+                    subscriptionRenderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                }
+            }
+        });
+
