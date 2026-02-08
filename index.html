@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SpendScape – AR + 3D Finance Visualizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Three.js (ONLY for Habits 3D) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<style>
+body{
+  background: radial-gradient(circle at top,#1e1b4b,#020617);
+  color:white;
+}
+.glass{
+  background:rgba(255,255,255,.08);
+  backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.15);
+}
+.hidden{display:none}
+.page{position:relative;z-index:10}
+
+/* INPUT VISIBILITY — unchanged */
+input[type="text"],
+input[type="number"],
+input:not([type]){
+  background:white;
+  color:black;
+}
+
+/* TABLE STYLING — ONLY CHANGE IS TEXT COLOR */
+table{
+  width:100%;
+  border-collapse:collapse;
+  color:white; /* ✅ table text now white */
+}
+td,th{
+  padding:8px;
+  border-bottom:1px solid rgba(255,255,255,.15);
+  color:white; /* ✅ enforce white text */
+}
+
+/* Editable cells */
+td[contenteditable]{
+  background:rgba(255,255,255,.08);
+  color:white; /* ✅ editable table text white */
+  outline:none;
+}
+
+canvas{max-height:300px}
+#habit3D{height:260px}
+</style>
+</head>
+
+<body>
+
+<header class="p-6 flex justify-between items-center">
+  <h1 class="text-2xl font-bold">SpendScape</h1>
+  <button onclick="showPage('dashboard')" class="bg-purple-600 px-4 py-2 rounded-xl">
+    Dashboard
+  </button>
+</header>
+
+<section id="home" class="page p-12 text-center">
+  <h2 class="text-5xl font-bold mb-4">Your Money. In AR & 3D.</h2>
+  <button onclick="showPage('dashboard')" class="bg-purple-600 px-6 py-3 rounded-xl">Start</button>
+</section>
+
+<section id="dashboard" class="page hidden p-10 grid md:grid-cols-3 gap-6">
+  <button onclick="showPage('habits')" class="glass p-6 rounded-xl">☕ Habits</button>
+  <button onclick="showPage('savings')" class="glass p-6 rounded-xl">🏦 Savings</button>
+  <button onclick="showPage('subs')" class="glass p-6 rounded-xl">💳 Subscriptions</button>
+</section>
+
+<!-- ================= HABITS ================= -->
+<section id="habits" class="page hidden p-10">
+<button onclick="showPage('dashboard')" class="underline mb-4">← Back</button>
+<h2 class="text-3xl font-bold mb-4">Habits (3D + AR)</h2>
+
+<div class="grid grid-cols-3 md:grid-cols-6 gap-4 mb-4">
+  <button onclick="addHabit('Coffee',180)" class="glass p-4 rounded-xl">☕</button>
+  <button onclick="addHabit('Food',250)" class="glass p-4 rounded-xl">🍔</button>
+  <button onclick="addHabit('Cab',300)" class="glass p-4 rounded-xl">🚕</button>
+  <button onclick="addHabit('Grocery',200)" class="glass p-4 rounded-xl">🛒</button>
+  <button onclick="addHabit('Pizza',400)" class="glass p-4 rounded-xl">🍕</button>
+  <button onclick="addHabit('Drinks',150)" class="glass p-4 rounded-xl">🧋</button>
+</div>
+
+<div class="glass p-4 rounded-xl mb-4">
+  <input id="habitName" type="text" placeholder="Habit name">
+  <input id="habitCost" type="number" placeholder="Daily ₹" class="ml-2">
+  <button onclick="addCustomHabit()" class="bg-green-600 px-4 py-2 rounded-xl ml-2">Add</button>
+</div>
+
+<div id="habit3D" class="glass rounded-xl mb-6"></div>
+
+<canvas id="habitChart"></canvas>
+
+<div class="glass p-4 rounded-xl mt-6">
+<table>
+<thead>
+<tr><th>Habit</th><th>Daily</th><th>Monthly</th><th>Yearly</th></tr>
+</thead>
+<tbody id="habitTable"></tbody>
+</table>
+</div>
+
+<button onclick="openAR('Habit Spending Impact')" class="mt-6 bg-purple-600 px-4 py-2 rounded-xl">
+  View in AR
+</button>
+</section>
+
+<!-- ================= SAVINGS ================= -->
+<section id="savings" class="page hidden p-10">
+<button onclick="showPage('dashboard')" class="underline mb-4">← Back</button>
+<h2 class="text-3xl font-bold mb-4">Savings</h2>
+
+<div class="glass p-4 rounded-xl mb-4">
+  <input id="savingEntry" type="text" placeholder="Entry">
+  <input id="savingAmount" type="number" placeholder="Amount ₹" class="ml-2">
+  <button onclick="addSaving()" class="bg-green-600 px-4 py-2 rounded-xl ml-2">Add</button>
+</div>
+
+<canvas id="savingLine"></canvas>
+<canvas id="savingPie" class="mt-4"></canvas>
+
+<div class="glass p-4 rounded-xl mt-6">
+<table>
+<thead><tr><th>Entry</th><th>Amount</th></tr></thead>
+<tbody id="savingTable"></tbody>
+</table>
+</div>
+
+<button onclick="openAR('Savings Progress')" class="mt-6 bg-purple-600 px-4 py-2 rounded-xl">
+  View in AR
+</button>
+</section>
+
+<!-- ================= SUBSCRIPTIONS ================= -->
+<section id="subs" class="page hidden p-10">
+<button onclick="showPage('dashboard')" class="underline mb-4">← Back</button>
+<h2 class="text-3xl font-bold mb-4">Subscriptions</h2>
+
+<div class="grid md:grid-cols-3 gap-4 mb-4">
+  <button onclick="addSub('Netflix',199)" class="glass p-4 rounded-xl">Netflix ₹199</button>
+  <button onclick="addSub('Spotify',119)" class="glass p-4 rounded-xl">Spotify ₹119</button>
+  <button onclick="addSub('Hotstar',149)" class="glass p-4 rounded-xl">Hotstar ₹149</button>
+  <button onclick="addSub('Prime',149)" class="glass p-4 rounded-xl">Prime ₹149</button>
+  <button onclick="addSub('YouTube',129)" class="glass p-4 rounded-xl">YouTube ₹129</button>
+</div>
+
+<div class="glass p-4 rounded-xl mb-4">
+  <input id="subName" type="text" placeholder="Subscription">
+  <input id="subCost" type="number" placeholder="Monthly ₹" class="ml-2">
+  <button onclick="addCustomSub()" class="bg-green-600 px-4 py-2 rounded-xl ml-2">Add</button>
+</div>
+
+<canvas id="subPie"></canvas>
+
+<div class="glass p-4 rounded-xl mt-6">
+<table>
+<thead><tr><th>Name</th><th>Monthly</th><th>Yearly</th></tr></thead>
+<tbody id="subTable"></tbody>
+</table>
+</div>
+
+<button onclick="openAR('Subscription Spending')" class="mt-6 bg-purple-600 px-4 py-2 rounded-xl">
+  View in AR
+</button>
+</section>
+
+<!-- ================= AR OVERLAY ================= -->
+<div id="arOverlay" class="fixed inset-0 bg-black hidden z-50">
+  <video id="camera" autoplay playsinline class="w-full h-full object-cover"></video>
+  <div id="arLabel" class="absolute bottom-10 w-full text-center text-xl font-bold"></div>
+  <button onclick="closeAR()" class="absolute top-4 right-4 bg-red-600 px-4 py-2 rounded-xl">Close</button>
+</div>
+
+<script>
+/* ---------- NAV ---------- */
+const pages=["home","dashboard","habits","savings","subs"];
+function showPage(p){
+  pages.forEach(x=>document.getElementById(x).classList.add("hidden"));
+  document.getElementById(p).classList.remove("hidden");
+}
+
+/* ---------- HABITS ---------- */
+let habits=[];
+function randColor(){return `hsl(${Math.random()*360},70%,60%)`}
+
+const habitChart=new Chart(document.getElementById("habitChart"),{
+  type:"bar",
+  data:{labels:[],datasets:[{data:[],backgroundColor:[]}]}
+});
+
+/* 3D */
+const scene=new THREE.Scene();
+const camera3D=new THREE.PerspectiveCamera(75,1,0.1,1000);
+const renderer=new THREE.WebGLRenderer({alpha:true});
+renderer.setSize(400,260);
+document.getElementById("habit3D").appendChild(renderer.domElement);
+camera3D.position.z=6;
+const bars=[];
+scene.add(new THREE.AmbientLight(0xffffff,1));
+
+function animate3D(){
+  requestAnimationFrame(animate3D);
+  bars.forEach(b=>b.rotation.y+=0.01);
+  renderer.render(scene,camera3D);
+}
+animate3D();
+
+function addHabit(name,cost){
+  const color=randColor();
+  habits.push({name,cost,color});
+  updateHabits();
+
+  const geom=new THREE.BoxGeometry(0.6,cost/150,0.6);
+  const mat=new THREE.MeshStandardMaterial({color});
+  const mesh=new THREE.Mesh(geom,mat);
+  mesh.position.x=bars.length-2;
+  scene.add(mesh);
+  bars.push(mesh);
+}
+
+function addCustomHabit(){
+  addHabit(habitName.value,+habitCost.value);
+}
+
+function updateHabits(){
+  habitChart.data.labels=habits.map(h=>h.name);
+  habitChart.data.datasets[0].data=habits.map(h=>h.cost);
+  habitChart.data.datasets[0].backgroundColor=habits.map(h=>h.color);
+  habitChart.update();
+
+  habitTable.innerHTML=habits.map((h,i)=>`
+    <tr>
+      <td contenteditable oninput="habits[${i}].name=this.innerText;updateHabits()">${h.name}</td>
+      <td contenteditable oninput="habits[${i}].cost=+this.innerText;updateHabits()">${h.cost}</td>
+      <td>₹${h.cost*30}</td>
+      <td>₹${h.cost*365}</td>
+    </tr>`).join("");
+}
+
+/* ---------- SAVINGS ---------- */
+let savings=[];
+const savingLine=new Chart(document.getElementById("savingLine"),{
+  type:"line",
+  data:{labels:[],datasets:[{label:"Savings ₹",data:[],borderColor:"#22c55e"}]}
+});
+const savingPie=new Chart(document.getElementById("savingPie"),{
+  type:"pie",
+  data:{labels:["Saved","Remaining"],datasets:[{data:[0,1],backgroundColor:["#22c55e","#ef4444"]}]}
+});
+
+function addSaving(){
+  savings.push({entry:savingEntry.value,amount:+savingAmount.value});
+  savingLine.data.labels=savings.map(s=>s.entry);
+  savingLine.data.datasets[0].data=savings.map(s=>s.amount);
+  savingPie.data.datasets[0].data=[savings.reduce((a,b)=>a+b.amount,0),1];
+  savingLine.update();
+  savingPie.update();
+
+  savingTable.innerHTML=savings.map((s,i)=>`
+    <tr>
+      <td contenteditable oninput="savings[${i}].entry=this.innerText;addSaving()">${s.entry}</td>
+      <td contenteditable oninput="savings[${i}].amount=+this.innerText;addSaving()">${s.amount}</td>
+    </tr>`).join("");
+}
+
+/* ---------- SUBSCRIPTIONS ---------- */
+const colorMap={Netflix:"red",Spotify:"green",Hotstar:"purple",Prime:"blue",YouTube:"orange"};
+let subs=[];
+const subPie=new Chart(document.getElementById("subPie"),{
+  type:"pie",
+  data:{labels:[],datasets:[{data:[],backgroundColor:[]}]}
+});
+
+function addSub(name,cost){
+  subs.push({name,cost,color:colorMap[name]||randColor()});
+  updateSubs();
+}
+function addCustomSub(){
+  addSub(subName.value,+subCost.value);
+}
+function updateSubs(){
+  subPie.data.labels=subs.map(s=>s.name);
+  subPie.data.datasets[0].data=subs.map(s=>s.cost);
+  subPie.data.datasets[0].backgroundColor=subs.map(s=>s.color);
+  subPie.update();
+
+  subTable.innerHTML=subs.map((s,i)=>`
+    <tr>
+      <td contenteditable oninput="subs[${i}].name=this.innerText;updateSubs()">${s.name}</td>
+      <td contenteditable oninput="subs[${i}].cost=+this.innerText;updateSubs()">${s.cost}</td>
+      <td>₹${s.cost*12}</td>
+    </tr>`).join("");
+}
+
+/* ---------- AR ---------- */
+async function openAR(label){
+  arLabel.innerText=label;
+  arOverlay.classList.remove("hidden");
+  const stream=await navigator.mediaDevices.getUserMedia({video:true});
+  camera.srcObject=stream;
+}
+function closeAR(){
+  camera.srcObject?.getTracks().forEach(t=>t.stop());
+  arOverlay.classList.add("hidden");
+}
+</script>
+
+</body>
+</html>
