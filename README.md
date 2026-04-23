@@ -28,4 +28,4 @@ Spendscape leverages AR technology to transform financial data into visual, inte
 (Add a short demo video link – highly recommended)
 
 ## 🚀 Live Demo
-https://spendscape.vercel-app
+https://spendscape.vercel.app/
