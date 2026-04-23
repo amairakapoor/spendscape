@@ -17,15 +17,9 @@ Spendscape leverages AR technology to transform financial data into visual, inte
 - 🧠 Smart spending analysis  
 
 ## ⚙️ Tech Stack
-- Unity / ARCore / ARKit (update based on your implementation)  
-- JavaScript / C# / Python (whichever you used)  
-- Firebase / Backend (if applicable)  
-
-## 📸 Demo
-(Add screenshots, AR previews, or GIFs here)
-
-## 🎥 Demo Video
-(Add a short demo video link – highly recommended)
+- WebAR
+- HTML
+- Node.js
 
 ## 🚀 Live Demo
 https://spendscape.vercel.app/
